@@ -1,0 +1,8 @@
+-- vim: syntax=lua sw=2
+
+local tx = turtlex
+
+tx.init()
+tx.setSlotName(1, 'seed')
+tx.harvest.field(5, 6)
+

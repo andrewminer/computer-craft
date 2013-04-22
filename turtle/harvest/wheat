@@ -1,0 +1,23 @@
+-- vi: syntax=lua sw=2
+local args = {...}
+if #args ~= 2 then
+  print("USAGE: /harvest/field <width> <depth>")
+end
+
+local width = tonumber(args[1])
+if width <= 0 then
+  print("Invalid width: "..width)
+end
+
+local depth = tonumber(args[2])
+if depth <= 0 then
+  print("Invalid depth: "..depth)
+end
+
+SEED_SLOT = 1
+
+return turtlex.runMission(function(t)
+  t.harvest.field(width, depth)
+  t.dropUnnamedItems()
+end)
+

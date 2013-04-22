@@ -1,0 +1,20 @@
+-- vi: syntax=lua sw=2
+
+if not fs.exists('/var') then
+  fs.makeDir('/var')
+end
+
+os.loadAPI('/apis/ds')
+os.loadAPI('/apis/turtlex')
+os.loadAPI('/apis/turtlex_harvesting')
+os.loadAPI('/apis/turtlex_making')
+os.loadAPI('/apis/turtlex_mining')
+os.loadAPI('/apis/turtlex_moving')
+
+turtlex.harvest = turtlex_harvesting
+turtlex.make    = turtlex_making
+turtlex.mine    = turtlex_mining
+turtlex.move    = turtlex_moving
+
+turtlex.init()
+

@@ -1,0 +1,32 @@
+-- vi: syntax=lua sw=2
+
+local target = nil
+
+for _, side in ipairs({"top", "left", "bottom", "right"}) do
+  if disk.isPresent(side) then
+    label = disk.getLabel(side)
+    if label == 'backup' then
+      target = disk.getMountPath(side)
+      break
+    end
+  end
+end
+
+if not target then
+  error "Could not find a disk labeled \"backup\""
+end
+
+if not shell.run('wipe', target) then
+  error "Aborting backup"
+end
+
+for _, file in ipairs(fs.list("/")) do
+  if file == "rom" then
+    -- skip
+  elseif string.find(file, "^disk[0-9]*") then
+    -- skip
+  else
+    fs.copy(fs.combine("/", file), fs.combine(target, file))
+  end
+end
+

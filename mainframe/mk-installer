@@ -1,0 +1,39 @@
+-- vi: syntax=lua sw=2
+
+local args = { ... }
+if #args < 2 then
+  error("USAGE: mk-installer <for> <side> [-e]")
+end
+
+local source = args[1]
+if not fs.exists(source) or not fs.isDir(source) then
+  error("Source is not a directory")
+end
+
+local side = args[2]
+if not disk.isPresent(side) then
+  error("No drive present at: "..side)
+end
+local target = disk.getMountPath(side)
+
+local should_eject = args[3] ~= nil
+
+if not shell.run('wipe', target) then
+  error("Aborting mk-installer")
+end
+
+target_content = fs.combine(target, 'content')
+if not fs.exists(target_content) then
+  fs.makeDir(target_content)
+end
+
+for _, file in ipairs(fs.list(source)) do
+  fs.copy(
+    fs.combine(source, file),
+    fs.combine(target_content, file)
+  )
+end
+fs.copy('/scripts/install', fs.combine(target, 'install'))
+disk.setLabel(side, fs.getName(source)..'-installer')
+if should_eject then disk.eject(side) end
+

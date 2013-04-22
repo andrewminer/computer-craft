@@ -1,0 +1,22 @@
+-- vi: syntax=lua sw=2
+
+local tx = turtlex
+
+function field(width, depth)
+  tx.consolidateTo('seed')
+  tx.up();
+  tx.storeLocationAs("/harvesting/field")
+
+  tx.move.volume(width, 1, depth, false, function()
+    if tx.detectDown() then
+      tx.digDown()
+      if tx.getItemCount('seed') == 1 then
+        tx.consolidateTo('seed')
+      end
+      tx.placeDown()
+    end
+  end)
+
+  tx.goToLocation("/harvesting/field")
+  tx.down()
+end

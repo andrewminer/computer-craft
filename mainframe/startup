@@ -1,0 +1,4 @@
+-- vi: syntax=lua sw=2
+
+shell.setAlias('vi', 'edit')
+shell.setAlias('l', 'dir')

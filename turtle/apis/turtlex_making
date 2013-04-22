@@ -1,0 +1,90 @@
+-- vi: syntax=lua sw=2
+
+local tx = turtlex
+
+-- Fills in a floor by exploring the extent of the area missing one.
+--
+-- Starting position: in front of the front, left corner of the first space to be filled
+-- Final position:    above the first front, left corner of the new floor
+function fillFloor()
+  tx.forward()
+  tx.storeLocationAs("/making/fillFloor")
+
+  local should_stop = false
+  local turns = 0
+  local result = false
+  while not should_stop do
+    if tx.detectDown() then
+      tx.back()
+      tx.turnRight()
+      turns = turns + 1
+      if turns >= 3 then
+        result = true
+        should_stop = true
+      end
+      if not tx.forward() then
+        should_stop = true
+      end
+    elseif tx.detect() then
+      tx.turnRight()
+    else
+      if tx.getItemCount('cobblestone') == 1 then
+        tx.consolidateTo('cobblestone')
+        if tx.getItemCount('cobblestone') == 1 then
+          tx.abortMission("Ran out of materials")
+        end
+      end
+      tx.placeDown() 
+      tx.forward()
+      turns = 0
+    end
+  end
+
+  tx.goToLocation("/making/fillFloor")
+  return result
+end
+
+function overheadLight(length)
+  if length < 4 then error("Overhead lights must be at least 4 long: "..length) end
+  tx.up(true)
+  tx.forward(true)
+  for i = 1, 2 do tx.turnLeft() end
+  tx.place()
+  for i = 1, 2 do tx.turnLeft() end
+  for i = 1, length - 3 do tx.forward(true) end
+  tx.dig(); tx.place()
+  tx.down(); tx.forward()
+end
+
+-- Places torches along the wall currently adjacent to the turtle.
+--
+-- Params:
+--     count:   the number of torches to place
+--     height:  the altitude above the floor where torches should be placed. Must be at least 2
+--     spacing: the number of blocks from one torch to the next
+--     offset:  the number of blocks before the first torch
+-- Starting position: On the floor of the wall facing along the length of the wall
+-- Final position:    At the end of the wall up against the first solid block
+-- Returns:           the number of torches placed
+function placeTorches(count, height, spacing, offset)
+  tx.select('torch')
+  for i = 1, height - 2 do
+    if not tx.up() then return false end
+  end
+  for i = 1, offset do
+    if not tx.forward() then return false end
+  end
+  for i = 1, count do
+    if not tx.placeUp() then tx.abortMission("Couldn't place torch") end
+    if i < count then
+      for j = 1, spacing do
+        if not tx.forward() then return false end
+      end
+    end
+  end
+  for i = 1, height - 2 do
+    if not tx.down() then return false end
+  end
+  return true
+end
+

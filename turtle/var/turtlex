@@ -1,0 +1,1 @@
+{["slotNames"]={[1]="cobblestone",[2]="torch",[16]="fuel",},["itemNumbers"]={["fuel"]=16,["torch"]=2,["cobblestone"]=1,},["position"]={["z"]=1,["y"]=0,["x"]=0,},["current_slot"]=1,["abortOnFailedMove"]=true,["aborting"]=false,["facing"]={["z"]=0,["y"]=1,["x"]=0,},["locations"]={["home"]={["position"]={["z"]=1,["y"]=0,["x"]=0,},["facing"]="forward",},},["data"]={},}

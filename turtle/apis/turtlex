@@ -1,0 +1,539 @@
+-- vi: syntax=lua sw=2
+
+DEFAULT_FUEL_POWER = 10
+GRAVEL_FALL_TIME = 0.25
+LAST_SLOT = 16
+STATE_FILE = '/var/turtlex'
+
+state = nil
+
+-- Turtle-X submodules
+harvest = nil
+mine = nil
+make = nil
+move = nil
+
+if not turtle then
+  error("Turtle-X can only be used on a turtle")
+end
+
+-- Facing Helpers -----------------------------------------------------------------------------------------------------
+
+FACING = {}
+FACING.forward = {x =  0, y =  1}
+FACING.back  = {x =  0, y = -1}
+FACING.right = {x =  1, y =  0}
+FACING.left  = {x = -1, y =  0}
+
+function facingAsVector(facingName)
+  local facingData = FACING[facingName]
+  if facingData == nil then error("Invalid facing name: "..facingName) end
+  return vector.new(facingData.x, facingData.y, 0)
+end
+
+function facingAsName(facing_vector)
+  for _,vector in ipairs({FACING.forward, FACING.back, FACING.right, FACING.left}) do
+    if facing_vector.x == vector.x and facing_vector.y == vector.y then
+      return vector
+    end
+  end
+  return nil
+end
+
+-- Turtle-X Functions -------------------------------------------------------------------------------------------------
+
+function init()
+  state = {}
+  state.aborting = false
+  state.abortOnFailedMove = true
+  state.currentSlot = 1
+  state.data = {}
+  state.facing = 'forward'
+  state.fuelPower = nil
+  state.itemNumbers = {}
+  state.locations = {}
+  state.locations.home = {position=vector.new(0, 0, 1), facing='forward'}
+  state.position = vector.new(0, 0, 1)
+  state.slotNames = {}
+
+  setSlotName(16, 'fuel')
+  
+  turtle.select(1)
+  maintainFuel()
+  print("Turtle-X ready")
+end
+
+function dumpState()
+  state_string = ''
+  for k,v in pairs(state) do
+    state_string = state_string.."\n"..k.."="..tostring(v)
+  end
+  textutils.pagedPrint(state_string)
+end
+
+-- Fuel Management Functions
+
+function getRemainingRange()
+  fuelPower = state.fuelPower or DEFAULT_FUEL_POWER
+  return getFuelLevel() + fuelPower * (getItemCount('fuel') - 1)
+end
+
+function maintainFuel()
+  local fuelSlot = asSlotNumber('fuel')
+  local currentFuelLevel = getFuelLevel()
+  if currentFuelLevel == 0 then
+    if getItemCount(fuelSlot) <= 2 then consolidateTo(fuelSlot) end
+    if getItemCount(fuelSlot) > 1 then
+      print("Refueling")
+      turtle.select(fuelSlot)
+      turtle.refuel(1)
+      state.fuelPower = getFuelLevel() - currentFuelLevel
+    else
+      print("Out of fuel!")
+    end
+  end
+  turtle.select(state.currentSlot)
+
+  return getRemainingRange()
+end
+
+-- Inventory Mangement Functions
+
+function asSlotNumber(identifier)
+  if type(identifier) == 'number' then return identifier end
+  if type(identifier) == 'string' then
+    local slot = state.itemNumbers[identifier]
+    if slot == nil then error("Unrecognized slot identifier: "..identifier) end
+    return slot
+  end
+  error("Unexpected type of identifier: "..identifier.." ["..type(identifier).."]")
+end
+
+function consolidateTo(slot)
+  slot = asSlotNumber(slot)
+  if getItemCount(slot) == 0 then
+    print("Can't consolidate to an empty slot")
+    return false
+  end
+
+  for i = 1,LAST_SLOT do
+    if i ~= slot then
+      turtle.select(i)
+      transferTo(slot)
+      if getItemCount(slot) == MAX_SLOT_CAPACITY then break end
+    end
+  end
+  turtle.select(state.currentSlot)
+  return true
+end
+
+function dropUnnamedItems()
+  for i = 1, LAST_SLOT do
+    if getSlotName(i) == nil then
+      turtle.select(i)
+      drop()
+    end
+  end
+  turtle.select(state.currentSlot)
+end
+
+function getCurrentSlot()
+  return state.currentSlot
+end
+
+function getSlotName(slot)
+  return state.slotNames[slot]
+end
+
+function setSlotName(slot, name)
+  state.slotNames[slot] = name
+  state.itemNumbers[name] = slot
+end
+
+-- Key-Value Storage Functions
+
+function get(key)
+  return state.data[key]
+end
+
+function set(key, value)
+  state.data[key] = value
+end
+
+-- Mission Functions
+
+function abortMission(reason)
+  print("ABORT! ABORT! ("..reason..")")
+  set('/abort_reason', reason)
+  storeLocationAs('/aborted_at')
+  state.aborting = true
+  goHome()
+  state.aborting = false
+
+  error(reason)
+end
+
+function checkMissionStatus()
+  if getRemainingRange() < getDistanceToHome() and not state.aborting then
+    abortMission('inadequate fuel supply')
+  end
+end
+
+function runMission(mission)
+  print("Starting mission")
+  local status, message = pcall(mission, turtlex)
+  if status then
+    goHome()
+    print("Mission accomplished")
+  else
+    aborted_at = getStoredLocation('/aborted_at')
+    if aborted_at then
+      print("Mission aborted at "..vector_tostring(getStoredLocation('/aborted_at'))..": "..message)
+    else
+      print("Mission aborted: "..message)
+    end
+  end
+
+  return status
+end
+
+-- Navigation Functions
+
+function getFacing()
+  return state.facing
+end
+
+function turnToFace(direction)
+  current = getFacing()
+  if direction == current then return end
+
+  shouldTurnLeft = (current == 'forward' and direction == 'left')  or
+                   (current == 'left'    and direction == 'back')  or
+                   (current == 'back'    and direction == 'right') or
+                   (current == 'right'   and direction == 'forward')
+  if shouldTurnLeft then turnLeft(); return end
+
+  shouldTurnRight = (current == 'forward' and direction == 'right') or
+                    (current == 'right'   and direction == 'back')  or
+                    (current == 'back'    and direction == 'left')  or
+                    (current == 'left'    and direction == 'forward')
+  if shouldTurnRight then turnRight(); return end
+
+  turnRight(); turnRight()
+  return
+end
+
+function getDistanceToHome()
+  local p = state.position
+  return math.abs(p.x) + math.abs(p.y) + math.abs(p.z + 1)
+end
+
+function getPosition()
+  local p = state.position
+  return vector.new(p.x, p.y, p.z)
+end
+
+function getStoredLocation(name)
+  local p = state.locations[name]
+  if not p then return nil end
+  return {position=vector.new(p.position.x, p.position.y, p.position.z), facing=p.facing}
+end
+
+function goHome()
+  return goToLocation('home')
+end
+
+function goToLocation(name)
+  local location = getStoredLocation(name)
+  if not location then
+    print("No stored location named: "..name)
+    return false
+  end
+  goToPoint(location.position)
+  turnToFace(location.facing)
+end
+
+function goToPoint(target_point)
+  local delta = target_point:sub(state.position)
+
+  while delta.x ~= 0 or delta.y ~= 0 or delta.z ~= 0 do
+    delta = target_point:sub(state.position)
+    local moved = false
+
+    if delta.x ~= 0 or delta.y ~= 0 then
+      local desired_x = delta.x / math.abs(delta.x)
+      local desired_y = delta.y / math.abs(delta.y)
+      if delta.x == 0 then desired_x = 0 end
+      if delta.y == 0 then desired_y = 0 end
+
+      if desired_x ~= 0 or desired_y ~= 0 then
+        while true do
+          local facingVector = facingAsVector(state.facing)
+          if desired_x ~= 0 and desired_x == facingVector.x then break end
+          if desired_y ~= 0 and desired_y == facingVector.y then break end
+          turnLeft()
+        end
+      end
+
+      if forward() then
+        moved = true
+      end
+    end
+
+    if not moved then
+      if delta.z < 0 then
+        if down() then moved = true end
+      elseif delta.z > 0 then
+        if up() then moved = true end
+      end
+    end
+
+    if not moved then
+      return false
+    end
+  end
+
+  return true
+end
+
+function storeLocationAs(name)
+  local location = {position=getPosition(), facing=getFacing()}
+  state.locations[name] = location
+end
+
+-- Turtle Functions ---------------------------------------------------------------------------------------------------
+
+-- Attack functions
+
+function attack()
+  return turtle.attack()
+end
+
+function attackDown()
+  return turtle.attackDown()
+end
+
+function attackUp()
+  return turtle.attackUp()
+end
+
+-- Block Manipulation Functions
+
+function compare()
+  return turtle.compare()
+end
+
+function compareDown()
+  return turtle.compareDown()
+end
+
+function compareTo(slot)
+  return turtle.compareTo(asSlotNumber(slot))
+end
+
+function compareUp()
+  return turtle.compareUp()
+end
+
+function detect()
+  return turtle.detect()
+end
+
+function detectDown()
+  return turtle.detectDown()
+end
+
+function detectUp()
+  return turtle.detectUp()
+end
+
+function dig()
+  if not detect() then return end
+  local didDig = turtle.dig()
+  while detect() do
+    -- Assume there's some falling block
+    os.sleep(GRAVEL_FALL_TIME)
+    didDig = turtle.dig() or didDig
+  end
+  return didDig
+end
+
+function digDown()
+  return turtle.digDown()
+end
+
+function digUp()
+  if not detect() then return end
+  local didDig = turtle.digUp()
+  while detectUp() do
+    -- Assume there's some falling block
+    os.sleep(GRAVEL_FALL_TIME)
+    didDig = turtle.digUp() or didDig
+  end
+  return didDig
+end
+
+function place(signText)
+  if getItemCount(getCurrentSlot()) == 1 then consolidateTo(getCurrentSlot()) end
+  return turtle.place(signText)
+end
+
+function placeDown()
+  if getItemCount(getCurrentSlot()) == 1 then consolidateTo(getCurrentSlot()) end
+  return turtle.placeDown()
+end 
+
+function placeUp()
+  if getItemCount(getCurrentSlot()) == 1 then consolidateTo(getCurrentSlot()) end
+  return turtle.placeUp()
+end
+
+-- Crafting Functions
+
+function craft(quantity)
+  return turtle.craft(quantity)
+end
+
+-- Fuel Management Functions
+
+function getFuelLevel()
+  return turtle.getFuelLevel()
+end
+
+function refuel(quantity)
+  return turtel.refuel()
+end
+
+-- Inventory Management Functions
+
+function drop(count)
+  if count == nil then
+    return turtle.drop()
+  else
+    return turtle.drop(count)
+  end
+end
+
+function dropDown(count)
+  if count then
+    turtle.dropDown(count)
+  else
+    turtle.dropDown()
+  end
+end
+
+function dropUp(count)
+  if count then
+    return turtle.dropUp(count)
+  else
+    return turtle.dropUp()
+  end
+end
+
+function getItemCount(slot)
+  return turtle.getItemCount(asSlotNumber(slot))
+end
+
+function getItemSpace(slot)
+  return turtle.getItemSpace(asSlotNumber(slot))
+end
+
+function select(slot)
+  slot = asSlotNumber(slot)
+  if turtle.select(slot) then
+    state['currentSlot'] = slot
+    return true
+  end
+  return false
+end
+
+function suck()
+  return turtle.suck()
+end
+
+function suckDown()
+  return turtle.suckDown()
+end
+
+function suckUp()
+  return turtle.suckUp()
+end
+
+function transferTo(slot, quantity)
+  slot = asSlotNumber(slot)
+  if quantity then
+    return turtle.transferTo(slot, quantity)
+  else
+    return turtle.transferTo(slot)
+  end
+end
+
+-- Movement Functions
+
+function back()
+  return _move('back', '', vector_inverse(facingAsVector(state.facing)), false)
+end
+
+function down(shouldDig)
+  return _move('down', 'digDown', vector.new(0, 0, -1), shouldDig)
+end
+
+function forward(shouldDig)
+  return _move('forward', 'dig', facingAsVector(state.facing), shouldDig)
+end
+
+function turnLeft()
+  local leftTurnResult = { forward='left', left='back', back='right', right='forward' }
+  local newFacing = leftTurnResult[state.facing]
+  if newFacing == nil then error("Invalid facing: "..state.facing) end
+  state.facing = newFacing
+  return turtle.turnLeft()
+end
+
+function turnRight()
+  local rightTurnResult = { forward='right', right='back', back='left', left='forward' }
+  local newFacing = rightTurnResult[state.facing]
+  if newFacing == nil then error("Invalid facing: "..state.facing) end
+  state.facing = newFacing
+  return turtle.turnRight()
+end
+
+function up(shouldDig)
+  return _move('up', 'digUp', vector.new(0, 0, 1), shouldDig)
+end
+
+-- Private Functions --------------------------------------------------------------------------------------------------
+
+function _move(moveCommand, digCommand, deltaVector, shouldDig)
+  maintainFuel()
+  while true do
+    if turtle[moveCommand]() then
+      state.position = state.position:add(deltaVector)
+      checkMissionStatus()
+      return true
+    elseif shouldDig then
+      turtlex[digCommand]()
+    else
+      if state.abortOnFailedMove then abortMission("Could not move "..moveCommand) end
+      return false
+    end
+  end
+end
+
+-- Vector Functions ---------------------------------------------------------------------------------------------------
+
+function vector_deserialize(table)
+  if not table then return nil end
+  return vector.new(table.x, table.y, table.z)
+end
+
+function vector_inverse(v)
+  if not v then return nil end
+  return vector.new(-v.x, -v.y, -v.z)
+end
+
+function vector_tostring(v)
+  if not v then return 'nil' end
+  return tostring(v.x)..","..tostring(v.y)..","..tostring(v.z)
+end
+

@@ -1,0 +1,18 @@
+-- vi: syntax=lua sw=2
+
+local source = '/disk/content'
+local target = '/'
+
+if not fs.exists(source) or not fs.isDir(source) then
+  error "The disk at `/disk` does not appear to be an installer"
+end
+
+for _, file in ipairs(fs.list(source)) do
+  local target_file = fs.combine(target, file)
+  if fs.exists(target_file) then
+    fs.delete(target_file)
+  end
+  fs.copy(fs.combine(source, file), target_file)
+end
+
+os.reboot()

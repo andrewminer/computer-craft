@@ -1,0 +1,10 @@
+-- vi: syntax=lua sw=2
+
+function as_set(list)
+  local set = {}
+  for _, value in ipairs(list) do
+    set[value] = true
+  end
+  return set
+end
+

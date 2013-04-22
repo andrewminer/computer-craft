@@ -1,0 +1,15 @@
+-- vi: syntax=lua sw=2
+
+for _,side in ipairs({"top", "left", "bottom", "right", "front", "back"}) do
+  if disk.isPresent(side) then
+    local letter = string.upper(string.sub(side, 1, 1))
+    local label = disk.getLabel(side)
+    local mount = disk.getMountPath(side)
+    local used = fs.getSize(mount)
+    local total = used + fs.getFreeSpace(mount)
+    local percent_used = math.floor(used / total)
+
+    print(string.format("%s:/%5s   %-10s   %3d%%", letter, mount, label, percent_used))
+  end
+end
+

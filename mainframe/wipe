@@ -1,0 +1,38 @@
+-- vi: syntax=lua sw=2
+
+local args = { ... }
+if #args < 1 then
+  error "USAGE: wipe <target> [-q]"
+end
+
+local target = args[1]
+if not fs.exists(target) or not fs.isDir(target) then
+  error([[Could not wipe]]..target..[[ because 
+    it does not exist or is not a directory]])
+end
+
+local quiet = (args[2] ~= nil)
+local really_delete = quiet
+
+if #fs.list(target) > 0 then
+  if not quiet then
+    term.write("Really wipe "..target.." (y/N): ")
+  end
+  local response = read()
+  if response == 'y' then
+    really_delete = true
+  else
+    really_delete = false
+  end
+else
+  really_delete = true
+end
+
+if really_delete then
+    for _, file in ipairs(fs.list(target)) do
+      fs.delete(fs.combine(target, file))
+    end
+else
+  error "Aborting wipe"
+end
+

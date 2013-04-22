@@ -1,0 +1,101 @@
+-- vi: syntax=lua sw=2
+
+local FIELD_ORIGIN = vector.new(-33, 1, 1)
+local TREE_COUNT = {rows=12, columns=2}
+local SAPLING_SLOT = 2
+local WOOD_SLOT = 1
+
+function allocateWood()
+  t.consolidateTo(t.state.fuel_slot)
+  if t.getItemCount(WOOD_SLOT) < 1 then
+    t.select(t.state.fuel_slot)
+    t.transferTo(WOOD_SLOT, 1)
+  end
+end
+
+function clearLeaves(t)
+  for i = 1, 4 do
+    if t.detect() then
+      t.forward(true)
+      for j = 1, 4 do
+        if t.detect() then t.dig() end
+        t.turnRight()
+      end
+      t.back()
+    end
+    t.turnRight()
+  end
+end
+
+function fellTree(t)
+  if t.detect() then t.dig() end
+  t.forward()
+
+  t.select(SAPLING_SLOT)
+  if t.compareDown() then return end
+
+  t.select(WOOD_SLOT)
+  if t.compareDown() then
+    t.digDown()
+    clearLeaves(t)
+  end
+
+  while t.compareUp() do
+    t.digUp()
+    t.up()
+    clearLeaves(t)
+  end
+
+  while t.getPosition().z > 1 do
+    t.down()
+  end
+
+  if t.getItemCount(SAPLING_SLOT) <= 1 then
+    t.consolidateTo(SAPLING_SLOT)
+  end
+  t.select(SAPLING_SLOT)
+  t.placeDown()
+end
+
+return turtlex.runMission(function(t)
+  t.goToPoint(FIELD_ORIGIN, true)
+  
+  for i = 1, TREE_COUNT.rows do
+    t.storeLocationAs('/feller/row_start')
+
+    t.face('front')
+    for k = 1, 2 do t.forward(true) end
+
+    for j = 1, TREE_COUNT.columns do
+      fellTree(t)
+      if j <= TREE_COUNT.columns-1 then
+        for k = 1, 3 do t.forward(true) end
+      end
+    end
+    t.goToLocation('/feller/row_start')
+
+    t.face('front')
+    t.turnRight()
+    if i <= TREE_COUNT.rows-1 then
+      for k = 1, 5 do t.forward(true) end
+    end
+  end
+
+  t.goHome()
+  for i = 1, t.LAST_SLOT do
+    t.select(i)
+    if i == WOOD_SLOT then
+      t.consolidateTo(WOOD_SLOT)
+      t.dropDown(t.getItemCount(WOOD_SLOT)-1)
+    elseif i == SAPLING_SLOT then
+      t.consolidateTo(SAPLING_SLOT)
+      t.select(SAPLING_SLOT)
+      t.dropDown(t.getItemCount(SAPLING_SLOT) - (TREE_COUNT.rows * TREE_COUNT.columns))
+    elseif i == t.state.fuel_slot then
+      -- skip
+    else
+      t.dropDown()
+    end
+  end
+end)
+

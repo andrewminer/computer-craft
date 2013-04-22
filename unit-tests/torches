@@ -1,0 +1,8 @@
+-- vim: syntax=lua sw=2
+
+local tx = turtlex
+
+tx.init()
+tx.setSlotName(1, 'torch')
+tx.make.placeTorches(4, 3, 3, 1)
+

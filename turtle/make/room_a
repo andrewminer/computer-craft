@@ -1,0 +1,23 @@
+-- vi: syntax=lua sw=2
+
+return turtlex.runMission(function(t)
+  -- Clear the doorway
+  t.move.volume(2, 3, 2)
+
+  -- Clear path on the right
+  t.forward()
+  t.turnRight()
+  t.forward()
+  t.move.volume(1, 3, 4)
+
+  -- Clear path on the left
+  for i = 1, 2 do t.turnLeft() end
+  for i = 1, 4 do t.forward() end
+  t.move.volume(1, 3, 4)
+
+  -- Clear the main room
+  t.forward()
+  t.turnRight()
+  t.move.volume(10, 3, 10)
+end)
+

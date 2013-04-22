@@ -1,0 +1,38 @@
+-- vi: syntax=lua sw=2
+
+local source = nil
+for _, side in ipairs({"top", "left", "bottom", "right"}) do
+  if disk.isPresent(side) then
+    label = disk.getLabel(side)
+    if label == 'backup' then
+      source = disk.getMountPath(side)
+      break
+    end
+  end
+end
+
+if not source then
+  error "Could not find a disk labeled \"backup\""
+end
+
+local args = { ... }
+local should_force = args[1] ~= nil
+
+for _, file in ipairs(fs.list(source)) do
+  target_file = fs.combine("/", file)
+  should_copy = true
+
+  if fs.exists(target_file) then
+    if should_force then
+      fs.delete(target_file)
+    else
+      print("Skipping existing file: "..target_file)
+      should_copy = false
+    end
+  end
+
+  if should_copy then
+    fs.copy(fs.combine(source, file), target_file)
+  end
+end
+

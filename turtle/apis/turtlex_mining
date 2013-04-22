@@ -1,0 +1,89 @@
+-- vi: syntax=lua sw=2
+
+local FEATHER_SIDE_GAP = 3
+local TORCH_GAP = 7
+
+local t = turtlex
+
+function encloseCorridorSegment()
+    t.select('cobblestone')
+    if t.getItemCount('cobblestone') <= 6 then t.consolidateTo('cobblestone') end
+
+    function fillSides()
+      -- Fill right
+      t.turnRight()
+      if not t.detect() then t.place() end
+
+      -- Fill left
+      for i = 1, 2 do t.turnRight() end
+      if not t.detect() then t.place() end
+      t.turnRight()
+    end
+
+    t.down()
+    fillSides()
+    if not t.detectDown() then t.placeDown() end
+
+    t.up()
+    fillSides()
+    if not t.detectUp() then t.placeUp() end
+end
+
+function corridor(length)
+  -- Dig the tunnel
+  for i = 1, length do
+    t.forward(true)
+    t.digDown()
+
+    encloseCorridorSegment(t)
+
+    if i > 1 and (((i-1) % TORCH_GAP) == 0) then
+      t.select('torch')
+      t.placeDown()
+    end
+  end
+
+  -- Come back out
+  for i = 1, length do t.back() end
+
+  t.consolidateTo('cobblestone')
+  for i = 1, t.LAST_SLOT do
+    if i ~= t.asSlotNumber('cobblestone') then
+      t.select(i)
+      if t.compareTo('cobblestone') then t.dropDown() end
+    end
+  end
+end
+
+function featherSegment(length)
+  -- Dig the left-hand side
+  for i = 1, FEATHER_SIDE_GAP+1 do
+    t.forward(true)
+    t.digDown()
+  end
+
+  -- Dig the right-hand side
+  t.turnRight()
+  t.forward(true)
+  t.digDown()
+  t.turnRight()
+  for i = 1, FEATHER_SIDE_GAP do
+    t.forward(true)
+    t.digDown()
+  end
+  t.turnRight()
+  t.forward()
+  t.turnRight()
+  for i = 1, FEATHER_SIDE_GAP do t.forward() end
+
+  -- Place a torch
+  t.select('torch')
+  t.turnRight()
+  t.place()
+  for i = 1, 2 do t.turnRight() end
+
+  -- Return to the feather
+  corridor(length)
+  t.turnRight()
+end
+

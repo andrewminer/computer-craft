@@ -1,0 +1,16 @@
+-- vi: syntax=lua sw=2
+
+local args = {...}
+if #args < 1 then
+  error("USAGE: copy_torches <height>")
+end
+
+local height = tonumber(args[1])
+if height <= 0 then
+  error("Invalid height: "..height)
+end
+
+return turtlex.runMission(function(t)
+  turtlex.make.copyTorches(height)
+end)
+

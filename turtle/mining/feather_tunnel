@@ -1,0 +1,36 @@
+-- vi: syntax=lua sw=2
+
+local args = {...}
+if #args < 2 then
+  error("USAGE: feather_tunnel <count> <length>")
+end
+
+local count = tonumber(args[1])
+if count <= 0 then
+  error("Invalid count: "..count)
+end
+
+local length = tonumber(args[2])
+if length <= 0 then
+  error("Invalid length: "..length)
+end
+
+return turtlex.runMission(function(t)
+  local torchesRequired = (count * length / 7)
+  local torchCount = t.getItemCount('torch')
+  if torchCount < torchesRequired then
+    t.abortMission(torchesRequired.." torches are needed, but I only have "..torchCount)
+  end
+  if t.getItemCount('cobblestone') < 1 then
+    t.abortMission("Please put some cobblestone in position "..COBBLE_SLOT)
+  end
+
+  t.select(TORCH_SLOT)
+  t.up(true)
+  
+  for i = 1, count do
+    t.mining.mineFeatherSegment(t, length)
+  end
+end)
+
+

@@ -1,0 +1,4 @@
+-- vi: syntax=lua sw=2
+
+turtlex.goHome()
+

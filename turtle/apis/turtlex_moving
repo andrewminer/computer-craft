@@ -1,0 +1,75 @@
+-- vi: syntax=lua sw=2
+
+tx = turtlex
+
+-- Moves the turtle through a volume allowing a function to be executed at each position.
+--
+-- Params:
+--     width:     size of the volume to the turtle's right (including the turtle's current block)
+--     height:    size of the volume above the turle (including the turtle's current block)
+--     depth:     size of the volume in front of the turtle (NOT including the turtle's current block)
+--     shouldDig: `true` if the turtle needs to dig through the volume.  Defaults to `true`.
+--     onVisit:   a function to execute upon entering each block of the volume. Defaults to no-op.
+--
+-- Starting position: In front of the lower-left corner of the volume to traverse
+-- Final position:    At the front, bottom, left corner of the volume (i.e., once space in front of the starting
+--                    position
+-- Returns:           `true` if the volume could be traversed
+function volume(width, height, depth, shouldDig, onVisit)
+  if shouldDig == nil then shouldDig = true end
+  if width == nil then error("Missing width") end
+  if height == nil then error("Missing height") end
+  if height < 0 then error("Height must be greater than 0: "..height) end
+  if depth == nil then error("Missing depth") end
+  if onVisit == nil then onVisit = function() end end
+
+  local direction = {x=1, y=1}
+  local position = {x=1, y=1, z=1}
+  
+  tx.forward(shouldDig)
+  tx.storeLocationAs('/move/volume')
+  onVisit()
+  tx.turnRight()
+
+  for i = 1, (height * width * depth) do
+    local reachedTop    = (direction.y ==  1 and position.y == height)
+    local reachedBottom = (direction.y == -1 and position.y == 1)
+    local reachedRight  = (direction.x ==  1 and position.x == width)
+    local reachedLeft   = (direction.x == -1 and position.x == 1)
+
+    local reachedCorner = (reachedTop    and reachedRight) or (reachedTop    and reachedLeft) or
+                          (reachedBottom and reachedRight) or (reachedBottom and reachedLeft)
+
+    if reachedCorner then
+      if i < (height * width * depth) - 1 then
+        position.z = position.z + 1
+        if direction.x == 1 then
+          tx.turnLeft(); tx.forward(true); tx.turnLeft()
+          onVisit()
+        end
+        if direction.x == -1 then
+          tx.turnRight(); tx.forward(true); tx.turnRight()
+          onVisit()
+        end
+      end
+      direction.x = direction.x * -1
+      direction.y = direction.y * -1
+    elseif reachedTop or reachedBottom then
+      tx.forward(true)
+      onVisit()
+      position.x = position.x + direction.x
+      direction.y = direction.y * -1
+    else
+      if direction.y == 1 then
+        tx.up(shouldDig); position.y = position.y + 1
+        onVisit()
+      elseif direction.y == -1 then
+        tx.down(shouldDig); position.y = position.y - 1
+        onVisit()
+      end
+    end
+  end
+
+  tx.goToLocation('/move/volume')
+end
+

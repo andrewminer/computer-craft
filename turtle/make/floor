@@ -1,0 +1,6 @@
+-- vi: syntax=lua sw=2
+
+return turtlex.runMission(function(t)
+  t.setSlotName(1, 'cobblestone')  
+  t.make.fillFloor()
+end)
